@@ -1,34 +1,37 @@
 /*
+ * 
  */
 
 #include <ros.h>
 #include <std_msgs/Int16.h>
 #include <std_msgs/String.h>
+#include <Wire.h>
+#include <Adafruit_PWMServoDriver.h>
 
 #define USB_CON
 
-# define rPWM 7
-# define rIn 8
-# define rOut 9
+# define rCoast 12
+# define rPWM 13
+# define rForward 14 
 
-# define lPWM 5
-# define lIn 2
-# define lOut 3
+# define lCoast 8  
+# define lPWM 9
+# define lForward 10
 
-void changeDirection(int in, int out, int pwm, int power){
+Adafruit_PWMServoDriver pwmDriver = Adafruit_PWMServoDriver();
+
+void changeDirection(int forward, int pwm, int power){
   int dir = 1;
+  int dirMod = 0; // direction
   if (power < 0) { power = power * -1; dir = -1;}
   if (power > 255) { power = 255;}
-  
-  
   if (dir > -1){
-      digitalWrite(in, HIGH);
-      digitalWrite(out, LOW);
+      dirMod = 0;
     } else {
-      digitalWrite(in, LOW);
-      digitalWrite(out, HIGH);
+      dirMod = 4095;
     }
-    analogWrite(pwm, power);
+    pwmDriver.setPWM(forward, 0, dirMod);
+    pwmDriver.setPWM(pwm, 0, power);
 }
 ros::NodeHandle  nh;
 //std_msgs::String str_msg;
@@ -41,15 +44,17 @@ void publish(){
 }
 
 unsigned long int timer;
+
+
 void messageCbl (const std_msgs::Int16& msg) {
   int power = msg.data;
-  changeDirection(lIn, lOut, lPWM, power);
+  changeDirection(lForward, lPWM, power);
   //publish();
    }
 
 void messageCbr (const std_msgs::Int16& msg) {
    int power = msg.data;
-   changeDirection(rIn, rOut, rPWM, power);
+   changeDirection(rForward, rPWM, power);
    //publish();
 }
    
@@ -59,6 +64,10 @@ ros::Subscriber<std_msgs::Int16> subr("rightWheel", &messageCbr);
 void setup()
 {
   timer = millis();
+  pwmDriver.begin();
+  pwmDriver.setPWMFreq(300);
+  pwmDriver.setPWM(rCoast, 0, 4095);
+  pwmDriver.setPWM(lCoast, 0, 4095);
   nh.initNode();
   nh.subscribe(subl);
   nh.subscribe(subr);
@@ -66,12 +75,12 @@ void setup()
 
   // PIN INITIALIZATION
 
-  pinMode(lIn, OUTPUT);
-  pinMode(lOut, OUTPUT);
+  pinMode(lForward, OUTPUT);
+  pinMode(lCoast, OUTPUT);
   pinMode(lPWM, OUTPUT);
 
-  pinMode(rIn, OUTPUT);
-  pinMode(rOut, OUTPUT);
+  pinMode(rForward, OUTPUT);
+  pinMode(rCoast, OUTPUT);
   pinMode(rPWM, OUTPUT);
 }
 void loop(){
